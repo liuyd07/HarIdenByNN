@@ -9,12 +9,13 @@
 % simulate data
 sampleFreq = 3840;
 t_step = 1/sampleFreq;
-t_lim = 1;
+t_lim = 0.5;
 t = t_step:t_step:t_lim;
 % harmonic parameter
 harOrder = 4;
-Amp = unidrnd(100,10,4);
-Phase = unidrnd(360,10,4);
+trainSampleNum = 100;
+Amp = unidrnd(100,trainSampleNum,harOrder);
+Phase = unidrnd(360,trainSampleNum,harOrder);
 trainData = [];
 
 for idx = 1:10
@@ -42,16 +43,18 @@ RBFNNPara.trainData = trainData;
 % err = RBFNN4Har(trainData,RBFNNPara);
 
 % test calculate the harmonic estimation by newrb
-trainDataNum = floor(length(trainData)/RBFNNPara.inputNum);
+trainDataNum = int32(length(trainData)/RBFNNPara.inputNum);
 trainData = reshape(trainData,[RBFNNPara.inputNum, trainDataNum]);
-trainAmp = repmat(Amp, [1 (trainDataNum/10)]);
+trainAmp = repmat(Amp, [1 (trainDataNum/trainSampleNum)]);
 trainAmp = reshape(trainAmp', [harOrder trainDataNum]);
-trainPhase = repmat(Phase, [1 (trainDataNum/10)]);
+trainPhase = repmat(Phase, [1 (trainDataNum/trainSampleNum)]);
 trainPhase = reshape(trainPhase', [harOrder trainDataNum]);
-
+save;
 ampNet = newrb(trainData, trainAmp, 1e-3, 50, 1200, 10);
-phaseNet = newrb(trainData, trainPhase, 0, 1,20,1);
-
+save;
+return;
+phaseNet = newrb(trainData, trainPhase, 1e-3, 50, 1200, 10);
+save;
 %
 t_lim = 10;
 t = t_step:t_step:t_lim;
@@ -60,14 +63,16 @@ testAmp = [100,30,20,15];
 testPhase = [152 35 0 0];
 
 testData = generateSimVoltage(t,harOrder,testAmp,testPhase);
-testData = reshape(testData,[RBFNNPara.inputNum, trainDataNum]);
+testDataNum = int32(length(testData)/RBFNNPara.inputNum);
 
-testAmpVec = repmat(testAmp', [1,trainDataNum]);
+testData = reshape(testData,[RBFNNPara.inputNum, testDataNum]);
+
+testAmpVec = repmat(testAmp', [1,testDataNum]);
 AmpTest = sim(ampNet, testData);
 ampErr = max(abs(AmpTest - testAmpVec),[],2);
 disp(ampErr);
 
-testPhaseVec = repmat(testPhase',[1,trainDataNum]);
+testPhaseVec = repmat(testPhase',[1,testDataNum]);
 PhaseTest = sim(phaseNet, testData);
 phaseErr = max(abs(PhaseTest - testPhaseVec),[],2);
 disp(phaseErr);
