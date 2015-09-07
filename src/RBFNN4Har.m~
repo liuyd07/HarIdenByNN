@@ -1,0 +1,11 @@
+function res = RBFNN4Har()
+
+%
+x = 0:0.01:5;
+y = sqrt(x);
+
+%
+net = newrb(x, y, 0, 20, 5);
+t = sim(net, x);
+
+figure;plot(x,y,'-',x,t,'*'
