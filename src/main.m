@@ -7,13 +7,15 @@
 % 3. output the relative error.
 %% input the harmonic waveform
 % simulate data
-sampleFreq = 3840;
+f0 = 50; % base frequency is 60Hz
+samplesInPeriod = 64;
+sampleFreq = f0*samplesInPeriod;
 t_step = 1/sampleFreq;
 t_lim = 0.5;
 t = t_step:t_step:t_lim;
 % harmonic parameter
 harOrder = 4;
-trainSampleNum = 100;
+trainSampleNum = 10;
 Amp = unidrnd(100,trainSampleNum,harOrder);
 Phase = unidrnd(360,trainSampleNum,harOrder);
 trainData = [];
@@ -29,37 +31,29 @@ end
 % set the initial options of the RBFNN. The recommended values are from the
 % paper by _Radial-Basis-Function-Based Neural Network for Harmonic
 % Detection_ by Gary Chang in 2010.
-RBFNNPara.inputNum = 32;
-RBFNNPara.outputNum = 4;
+RBFNNPara.inputNum = samplesInPeriod/2;
+RBFNNPara.outputNum = harOrder;
 RBFNNPara.maxHiddenNum = 20;
+RBFNNPara.trainSampleNum = trainSampleNum;
 RBFNNPara.hiddenNum = 8;
 RBFNNPara.weightLearningRate = 0.3;
 RBFNNPara.centerLearningRate = 0.01;
 RBFNNPara.stdErrLearningRate = 0.6;
 RBFNNPara.maxIterationNum = 500;
 RBFNNPara.trainData = trainData;
-
+RBFNNPara.trainAmp = Amp;
+RBFNNPara.trainPhase = Phase;
 % calculate the harmonic identification result
-% err = RBFNN4Har(trainData,RBFNNPara);
+[ampNet, phaseNet] = RBFNN4Har(RBFNNPara);
 
 % test calculate the harmonic estimation by newrb
-trainDataNum = int32(length(trainData)/RBFNNPara.inputNum);
-trainData = reshape(trainData,[RBFNNPara.inputNum, trainDataNum]);
-trainAmp = repmat(Amp, [1 (trainDataNum/trainSampleNum)]);
-trainAmp = reshape(trainAmp', [harOrder trainDataNum]);
-trainPhase = repmat(Phase, [1 (trainDataNum/trainSampleNum)]);
-trainPhase = reshape(trainPhase', [harOrder trainDataNum]);
-save;
-ampNet = newrb(trainData, trainAmp, 1e-3, 50, trainDataNum, 10);
-save;
 
-phaseNet = newrb(trainData, trainPhase, 1e-3, 50, trainDataNum, 10);
-save;
-%
+% RBFNN validation with test data
 t_lim = 10;
 t = t_step:t_step:t_lim;
 harOrder = 4;
-testAmp = [100,30,20,15];
+%testAmp = [100,30,20,15];
+testAmp = Amp(2,:);
 testPhase = [152 35 0 0];
 
 testData = generateSimVoltage(t,harOrder,testAmp,testPhase);
@@ -78,7 +72,45 @@ phaseErr = max(abs(PhaseTest - testPhaseVec),[],2);
 disp(phaseErr);
 
 %% RNN
+RNNPara.inputNum = samplesInPeriod/2;
+RNNPara.outputNum = harOrder;
+RNNPara.maxHiddenNum = 20;
+RNNPara.trainSampleNum = trainSampleNum;
+RNNPara.hiddenNum = 8;
+RNNPara.weightLearningRate = 0.3;
+RNNPara.centerLearningRate = 0.01;
+RNNPara.stdErrLearningRate = 0.6;
+RNNPara.maxIterationNum = 500;
+RNNPara.trainData = trainData;
+RNNPara.trainAmp = Amp;
+RNNPara.trainPhase = Phase;
 
+%
+% test calculate the harmonic estimation by layer recurrent network
+trainDataNum = int32(length(trainData)/RNNPara.inputNum);
+trainData = reshape(trainData,[RNNPara.inputNum, trainDataNum]);
+trainData = mat2cell(trainData,[RNNPara.inputNum],ones(1,trainDataNum));
+
+trainAmp = repmat(Amp, [1 (trainDataNum/RNNPara.trainSampleNum)]);
+trainAmp = reshape(trainAmp', [RNNPara.outputNum trainDataNum]);
+trainAmp = mat2cell(trainAmp, [RNNPara.outputNum], ones(1,trainDataNum));
+
+trainPhase = repmat(Phase, [1 (trainDataNum/RNNPara.trainSampleNum)]);
+trainPhase = reshape(trainPhase', [RNNPara.outputNum trainDataNum]);
+trainPhase = mat2cell(trainPhase, [RNNPara.outputNum], ones(1,trainDataNum));
+
+net = layrecnet(1:2,15);
+net.trainParam.goal = 1e-4;
+[Xs,Xi,Ai,Ts] = preparets(net,trainData,trainAmp);
+net = train(net,Xs,Ts,Xi,Ai);
+view(net)
+Y = net(Xs,Xi,Ai);
+perf = perform(net,Y,Ts);
+
+
+
+%
+%res = RNN4Har(RNNParas);
 %% BPN
 
 %% error comparison
