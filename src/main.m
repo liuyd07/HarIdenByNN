@@ -99,8 +99,8 @@ trainPhase = repmat(Phase, [1 (trainDataNum/RNNPara.trainSampleNum)]);
 trainPhase = reshape(trainPhase', [RNNPara.outputNum trainDataNum]);
 trainPhase = mat2cell(trainPhase, [RNNPara.outputNum], ones(1,trainDataNum));
 
-net = layrecnet(1:2,15);
-net.trainParam.goal = 1e-4;
+net = layrecnet(1:5,15);
+% net.trainParam.goal = 1e-4;
 [Xs,Xi,Ai,Ts] = preparets(net,trainData,trainAmp);
 net = train(net,Xs,Ts,Xi,Ai);
 view(net)
